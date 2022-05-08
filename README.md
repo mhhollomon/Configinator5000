@@ -13,6 +13,7 @@ can be as time consuming as the parsing of the syntax.
 - will allow the user to specify a schema for the target configuration.
 - will be setup to work nicely with FetchConfig.
 - header only ???
+- throw as little as possible without making the interface horrible.
 
 ```
 //sample schema file
@@ -30,3 +31,28 @@ midi { type : "group", required : "yes"
     }
   }
 }
+```
+```C++
+// sample usage
+#include <configinator5000.hpp>
+#include <string>
+
+std::string schema = R"DELIM(
+// long schema ....
+)DELIM"s
+
+Configinator5000::Configinator cfg;
+
+if (!cfg.set_schema(schema)) {
+  std::cerr << "Bad Schema\n";
+}
+
+if (! cfg.parse(file_name)) {
+  std::cerr << "Yikes\n";
+}
+
+// Or
+if (! cfg.parse(my_istream)) {
+  std::cerr << "Yikes again!\n";
+}
+```
