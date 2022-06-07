@@ -458,14 +458,19 @@ namespace Configinator5000 {
             return std::string(retval);
         }
 
+        //##############   parse_value_list    ##############
+        bool parse_value_list(Setting * setting) {
+            return true;
+        }
+
         //##############   parse_setting_value ##############
 
         bool parse_setting_value(Setting * setting) {
             if (peek() == '{') {
                 consume(1);
                 skip();
-                new_setting.make_group();
-                parse_setting_list(&new_setting);
+                setting->make_group();
+                parse_setting_list(setting);
                 skip();
                 if (peek(0) != '}') {
                     record_error("Didn't find close of setting group");
@@ -474,8 +479,8 @@ namespace Configinator5000 {
             } else if (peek() == '(') {
                 consume(1);
                 skip();
-                new_setting.make_list();
-                parse_value_list(&new_setting);
+                setting->make_list();
+                parse_value_list(setting);
                 skip();
                 if (peek() != ')') {
                     record_error("Didn't find close of setting list");
@@ -484,7 +489,7 @@ namespace Configinator5000 {
             } else if (peek() == '[') {
                 consume(1);
                 skip();
-                new_setting.make_array();
+                setting->make_array();
                 //parse_scalar_value_list(&new_setting);
                 skip();
                 if (peek() != ')') {
@@ -492,7 +497,7 @@ namespace Configinator5000 {
                     return false;
                 }
             } else {
-                if (! match_scalar_value(&new_setting)) {
+                if (! match_scalar_value(setting)) {
                     record_error("Expecting a value");
                     return false;
                 }
@@ -517,7 +522,12 @@ namespace Configinator5000 {
             }
             consume(1);
 
-            Setting &new_setting = parent->add_child(*name);
+            auto new_setting = parent->create_child(*name);
+
+            if (!new_setting) {
+                record_error("Setting named "s + *name + " already defined in this context");
+                return false;
+            }
 
             skip();
 

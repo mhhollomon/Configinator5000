@@ -4,12 +4,15 @@
 #include <memory>
 #include <string>
 #include <map>
+#include <optional>
 #include <vector>
 #include <exception>
 #include <sstream>
 #include <fstream>
 
 #include <type_traits>
+
+using namespace std::literals::string_literals;
 
 namespace Configinator5000 {
 
@@ -26,6 +29,9 @@ namespace Configinator5000 {
     class Setting {
     public :
         enum class setting_type { STRING, BOOL, INTEGER, FLOAT, GROUP, LIST, ARRAY };
+
+        Setting(std::string n = ""s, setting_type t = setting_type::BOOL) : 
+            name_{n}, type_{t} {}
     private :
         friend class Config;
         friend class Parser;
@@ -36,37 +42,38 @@ namespace Configinator5000 {
         double float_;
         bool bool_;
         std::string string_;
-        std::map<std::string, Setting> group_;
-        std::vector<Setting> list_array_;
+        std::map<std::string, int> group_;
+        std::vector<Setting> children_;
 
-        void clear_composites() {
-            if (is_group()) {
-                group_.clear();
-            } else if (is_string()) {
-                string_.clear();
-            } else if (is_list() or is_array()) {
-                list_array_.clear();
-
-            }
+        void clear_subobjects() {
+            children_.clear();
+            group_.clear();
+            string_.clear();
         }
-        Setting(std::string n, setting_type t = setting_type::BOOL) : 
-            name_{n}, type_{t} {}
+        
 
-        Setting & add_child(const std::string &name) {
+        /* Create a new named child and return a reference to it */
+        Setting * create_child(const std::string &name) {
             if (!is_group()) throw std::runtime_error(
                     "Must be a group to add a named child");
 
-            auto [ iter, done ] = group_.emplace(name, Setting(name));
+            auto [ iter, done ] = group_.try_emplace(name, group_.size());
 
-            return iter->second;
+            if (done) {
+                // It didn't exists before
+                auto & new_ref = children_.emplace_back(name);
+                return &new_ref;
+            } else {
+                return nullptr;
+            }
+
         }
 
-        Setting &add_child() {
+        Setting *create_child() {
             if (is_list() or is_array()) {
-                auto [iter,done] = list_array_.emplace(Setting());
-                return *iter;
+                return &(children_.emplace_back());
             }
-            throw std::runtime_error("Wrong setting type for add child");
+            throw std::runtime_error("Wrong setting type for create_child()");
         }
     public :
         Setting(std::string n, int i) : name_(n), type_(setting_type::INTEGER), integer_(i) {}
@@ -85,18 +92,24 @@ namespace Configinator5000 {
         bool is_scalar()    const { return (! is_composite()); }
 
         void make_list() {
-            clear_composites();
-            type_ = setting_type::LIST;
+            if (!is_list()) {
+                clear_subobjects();
+                type_ = setting_type::LIST;
+            }
         }
 
         void make_group() {
-            clear_composites();
-            type_ = setting_type::GROUP;
+            if (!is_group()) {
+                clear_subobjects();
+                type_ = setting_type::GROUP;
+            }
         }
 
         void make_array() {
-            clear_composites();
-            type_ = setting_type::ARRAY;
+            if (! is_array()) {
+                clear_subobjects();
+                type_ = setting_type::ARRAY;
+            }
         }
 
         bool exists(std::string child) const {
@@ -137,7 +150,7 @@ namespace Configinator5000 {
                     throw std::runtime_error("Bad type conversion\n");
                 }
             } else {
-                throw std::runtime_error("Bad type conversion\n");
+                throw std::runtime_error("Bad type conversion (not a scalar)\n");
             }
 
         }
