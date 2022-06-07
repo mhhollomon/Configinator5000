@@ -4,7 +4,6 @@
 #include <memory>
 #include <string>
 #include <map>
-#include <optional>
 #include <vector>
 #include <exception>
 #include <sstream>
@@ -30,13 +29,10 @@ namespace Configinator5000 {
     public :
         enum class setting_type { STRING, BOOL, INTEGER, FLOAT, GROUP, LIST, ARRAY };
 
-        Setting(std::string n = ""s, setting_type t = setting_type::BOOL) : 
-            name_{n}, type_{t} {}
     private :
         friend class Config;
         friend class Parser;
 
-        std::string name_;
         setting_type type_;
         long integer_;
         double float_;
@@ -61,7 +57,7 @@ namespace Configinator5000 {
 
             if (done) {
                 // It didn't exists before
-                auto & new_ref = children_.emplace_back(name);
+                auto & new_ref = children_.emplace_back();
                 return &new_ref;
             } else {
                 return nullptr;
@@ -76,8 +72,12 @@ namespace Configinator5000 {
             throw std::runtime_error("Wrong setting type for create_child()");
         }
     public :
-        Setting(std::string n, int i) : name_(n), type_(setting_type::INTEGER), integer_(i) {}
-        Setting(std::string n, double f) :  name_(n), type_(setting_type::FLOAT), float_(f) {}
+        Setting(setting_type t = setting_type::BOOL) : type_{t} {}
+
+        Setting(bool b) : type_(setting_type::BOOL), bool_(b) {}
+        Setting(int i) : type_(setting_type::INTEGER), integer_(i) {}
+        Setting(double f) :  type_(setting_type::FLOAT), float_(f) {}
+        Setting(std::string s) : type_(setting_type::STRING), string_(s) {}
         
         bool is_boolean() const { return (type_ == setting_type::BOOL); }
         bool is_integer() const { return (type_ == setting_type::INTEGER); }
@@ -112,7 +112,7 @@ namespace Configinator5000 {
             }
         }
 
-        bool exists(std::string child) const {
+        bool exists(const std::string child) const {
             if (! is_group()) return false;
 
             auto const &iter = group_.find(child);

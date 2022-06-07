@@ -5,7 +5,6 @@
 #include <charconv>
 #include <sstream>
 
-using namespace std::literals::string_literals;
 
 namespace Configinator5000 {
 
@@ -572,7 +571,7 @@ namespace Configinator5000 {
 
     bool Config::parse_with_schema(const std::string &input, const SchemaNode *schema){
 
-        cfg_.reset(new Setting("_ROOT_"s, Setting::setting_type::GROUP));
+        cfg_.reset(new Setting(Setting::setting_type::GROUP));
 
         Parser p{input, cfg_.get()};
 
