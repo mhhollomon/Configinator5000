@@ -76,9 +76,66 @@ namespace Configinator5000 {
 
         Setting(bool b) : type_(setting_type::BOOL), bool_(b) {}
         Setting(int i) : type_(setting_type::INTEGER), integer_(i) {}
+        Setting(long l) : type_(setting_type::INTEGER), integer_(l) {}
         Setting(double f) :  type_(setting_type::FLOAT), float_(f) {}
         Setting(std::string s) : type_(setting_type::STRING), string_(s) {}
+        Setting(const char * c) : type_(setting_type::STRING), string_(c) {}
+
+        Setting & set_value(bool b) {
+            if (!is_boolean()) {
+                clear_subobjects();
+                type_ = setting_type::BOOL;
+            }
+            bool_ = b;
+            return *this;
+        }
+
+        Setting & set_value(int i) {
+            if (!is_integer()) {
+                clear_subobjects();
+                type_ = setting_type::INTEGER;
+            }
+            integer_ = i;
+            return *this;
+        }
+
+        Setting & set_value(long i) {
+            if (!is_integer()) {
+                clear_subobjects();
+                type_ = setting_type::INTEGER;
+            }
+            integer_ = i;
+            return *this;
+        }
         
+        Setting & set_value(double f) {
+            if (!is_float()) {
+                clear_subobjects();
+                type_ = setting_type::FLOAT;
+            }
+            float_ = f;
+            return *this;
+        }
+
+
+        Setting & set_value(const std::string s) {
+            if (!is_string()) {
+                clear_subobjects();
+                type_ = setting_type::STRING;
+            }
+            string_ = s;
+            return *this;
+        }
+
+        Setting & set_value(const char *c) {
+            if (!is_string()) {
+                clear_subobjects();
+                type_ = setting_type::STRING;
+            }
+            string_ = c;
+            return *this;
+        }
+
         bool is_boolean() const { return (type_ == setting_type::BOOL); }
         bool is_integer() const { return (type_ == setting_type::INTEGER); }
         bool is_float()   const { return (type_ == setting_type::FLOAT); }
