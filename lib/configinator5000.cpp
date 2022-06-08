@@ -5,8 +5,12 @@
 #include <charconv>
 #include <sstream>
 
+#include <iostream>
+
 
 namespace Configinator5000 {
+
+    using ST = Setting::setting_type;
 
     struct parse_loc {
         std::string_view sv;
@@ -240,8 +244,7 @@ namespace Configinator5000 {
                 if (valid_pos(pos) and std::isalnum(peek(pos))) return false;
 
                 consume(pos);
-                parent->bool_ = false;
-                parent->type_ = Setting::setting_type::BOOL;
+                parent->set_value(false);
                 return true;
 
             } else if (match_chars(pos, "Tt")) {
@@ -256,8 +259,7 @@ namespace Configinator5000 {
                 if (valid_pos(pos) and std::isalnum(peek(pos))) return false;
 
                 consume(pos);
-                parent->bool_ = false;
-                parent->type_ = Setting::setting_type::BOOL;
+                parent->set_value(true);
                 return true;
             }
 
@@ -265,14 +267,17 @@ namespace Configinator5000 {
 
         }
 
+        //##############   match_numeric_value  #################
+        //
         bool match_numeric_value(Setting *parent) {
             if (match_string("0x") or match_string("0X")) {
                 // integer in hex format - from_chars doesn't like the 0x prefix
                 // can't be anything else so commit.
+                int seen_num;
                 auto [ ptr, ec] = std::from_chars(current_loc.sv.data()+2,
-                        current_loc.sv.data()+current_loc.sv.size(), parent->integer_, 16);
+                        current_loc.sv.data()+current_loc.sv.size(), seen_num, 16);
                 if (ec == std::errc()) {
-                    parent->type_ = Setting::setting_type::INTEGER;
+                    parent->set_value(seen_num);
                     int pos = ptr-current_loc.sv.data();
                     if (valid_pos(pos) and std::isalnum(*ptr)) {
                         // End of the number wasn't at a word boundary.
@@ -299,12 +304,13 @@ namespace Configinator5000 {
                 bool worked = true;
                 try {
                     size_t pos = 0;
-                    parent->integer_ = std::stol(subject, &pos);
-                    if (valid_pos(pos) and std::isalnum(peek(pos))) {
+                    int seen_num = std::stol(subject, &pos);
+
+                    if (valid_pos(pos) and (std::isalnum(peek(pos)) or match_char(pos, '.'))) {
                         worked = false;
                     } else {
                         consume(pos);
-                        parent->type_ = Setting::setting_type::INTEGER;
+                        parent->set_value(seen_num);
                         worked = true;
                     }
                 } catch(std::exception &e) {
@@ -317,12 +323,12 @@ namespace Configinator5000 {
                 worked = true;
                 try {
                     size_t pos = 0;
-                    parent->float_ = std::stod(subject, &pos);
+                    double seen_num = std::stod(subject, &pos);
                     if (valid_pos(pos) and std::isalnum(peek(pos))) {
                         worked = false;
                     } else {
                         consume(pos);
-                        parent->type_ = Setting::setting_type::FLOAT;
+                        parent->set_value(seen_num);
                         worked = true;
                     }
                 } catch(std::exception &e) {
@@ -409,13 +415,16 @@ namespace Configinator5000 {
                         consume(1);
                         break;
                     }
-                skip();
-                if (!match_char('"'))
-                    break;
+                if (stop) {
+                    skip();
+                    if (match_char('"')) {
+                        stop = false;
+                        consume(1);
+                    }
+                }
             }
 
-            parent->string_ = buf.str();
-            parent->type_ = Setting::setting_type::STRING;
+            parent->set_value(buf.str());
 
             return true;
 
@@ -475,6 +484,7 @@ namespace Configinator5000 {
                     record_error("Didn't find close of setting group");
                     return false;
                 }
+                consume(1);
             } else if (peek() == '(') {
                 consume(1);
                 skip();
@@ -485,16 +495,18 @@ namespace Configinator5000 {
                     record_error("Didn't find close of setting list");
                     return false;
                 }
+                consume(1);
             } else if (peek() == '[') {
                 consume(1);
                 skip();
                 setting->make_array();
                 //parse_scalar_value_list(&new_setting);
                 skip();
-                if (peek() != ')') {
-                    record_error("Didn't find close of value list");
+                if (peek() != ']') {
+                    record_error("Didn't find close of value array");
                     return false;
                 }
+                consume(1);
             } else {
                 if (! match_scalar_value(setting)) {
                     record_error("Expecting a value");
@@ -571,11 +583,16 @@ namespace Configinator5000 {
 
     bool Config::parse_with_schema(const std::string &input, const SchemaNode *schema){
 
-        cfg_.reset(new Setting(Setting::setting_type::GROUP));
+        cfg_.reset(new Setting(ST::GROUP));
 
         Parser p{input, cfg_.get()};
 
         bool retval = p.do_parse();
+
+        if (!retval) {
+            std::cerr << "FAILED!\n";
+            std::cerr << p.errors;
+        }
 
         return retval;
     }

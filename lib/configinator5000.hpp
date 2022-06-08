@@ -15,9 +15,6 @@ using namespace std::literals::string_literals;
 
 namespace Configinator5000 {
 
-    // Forward Declaration
-    class Parser;
-
     // These make up the schema tree
     // that is consulted for the rules
     class SchemaNode {
@@ -30,8 +27,6 @@ namespace Configinator5000 {
         enum class setting_type { STRING, BOOL, INTEGER, FLOAT, GROUP, LIST, ARRAY };
 
     private :
-        friend class Config;
-        friend class Parser;
 
         setting_type type_;
 
@@ -83,29 +78,6 @@ namespace Configinator5000 {
         }
         
 
-        /* Create a new named child and return a reference to it */
-        Setting * create_child(const std::string &name) {
-            if (!is_group()) throw std::runtime_error(
-                    "Must be a group to add a named child");
-
-            auto [ iter, done ] = group_.try_emplace(name, group_.size());
-
-            if (done) {
-                // It didn't exists before
-                auto & new_ref = children_.emplace_back();
-                return &new_ref;
-            } else {
-                return nullptr;
-            }
-
-        }
-
-        Setting *create_child() {
-            if (is_list() or is_array()) {
-                return &(children_.emplace_back());
-            }
-            throw std::runtime_error("Wrong setting type for create_child()");
-        }
     public :
         Setting(setting_type t = setting_type::BOOL) : type_{t} {}
 
@@ -333,6 +305,92 @@ namespace Configinator5000 {
             }
         }
 
+        // ==== NON EXCEPTION VARIANTS
+        template<class T>
+        Setting* try_add_child(T v) {
+
+            if (is_group()) {
+                return nullptr;
+
+            } else if (is_array()) {
+                setting_type target_type = deduce_scalar_type(v);
+                if (children_.size() > 0) {
+                    if (array_type_ != target_type) {
+                        return nullptr;
+                    }
+                } else {
+                    array_type_ = target_type;
+                }
+                return &(children_.emplace_back(v));
+
+            } else if (is_list()) {
+                return &(children_.emplace_back(v));
+
+            } else {
+                return nullptr;
+            }
+        }
+
+        Setting* try_add_child(setting_type t) {
+            if (is_group()) {
+                return nullptr;
+
+            } else if (is_list()) {
+                return &(children_.emplace_back(t));
+
+            } else if (is_array()) {
+                if (is_composite_type(t)) {
+                    return nullptr;
+                }
+
+                if (children_.size() > 0) {
+                    if (array_type_ != t) {
+                        return nullptr;
+                    }
+                } else {
+                    array_type_ = t;
+                }
+                return &(children_.emplace_back(t));
+            } else {
+                return nullptr;
+            }
+        }
+
+        template<class T>
+        Setting* try_add_child( const std::string &name, T v) {
+
+            if (!is_group()) {
+                return nullptr;
+            }
+
+            auto [ _, done ] = group_.try_emplace(name, group_.size());
+
+            if (done) {
+                // It didn't exists before
+                return &(children_.emplace_back(v));
+            } else {
+                return nullptr;
+
+            }
+        }
+
+        Setting* try_add_child( const std::string &name, setting_type t) {
+
+            if (!is_group()) {
+                return nullptr;
+            }
+
+            auto [ _, done ] = group_.try_emplace(name, group_.size());
+
+            if (done) {
+                // It didn't exists before
+                return &(children_.emplace_back(t));
+            } else {
+                return nullptr;
+
+            }
+        }
+
         int count() const {
             if (is_scalar()) {
                 return 0;
@@ -361,18 +419,29 @@ namespace Configinator5000 {
             return children_.at(idx);
         }
 
-        Setting &at(std::string name) {
+        Setting &at(const std::string& name) {
             if (!is_group()) {
                 throw std::runtime_error("at(string) called on a non-group");
             }
 
             auto iter = group_.find(name);
             if (iter == group_.end()) {
-                throw std::runtime_error("at(string) : key "s + name + " does not exist in the group");
+                throw std::runtime_error("at(string) : key "s + name + 
+                        " does not exist in the group");
             }
 
             return children_.at(iter->second);
         }
+
+        //used by the parser. Probably will go away
+        Setting * create_child(const std::string &name) {
+            return try_add_child(name, setting_type::BOOL);
+        }
+
+        Setting *create_child() {
+            return try_add_child(setting_type::BOOL);
+        }
+
 
 
     };
@@ -394,6 +463,10 @@ namespace Configinator5000 {
 
         bool parse(const std::string &input) {
             return parse_with_schema(input, schema_tree_.get());
+        }
+
+        Setting& get_settings() const {
+            return *cfg_;
         }
 
     private:
