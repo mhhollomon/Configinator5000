@@ -13,17 +13,17 @@ project(Configinator5000 VERSION 0.1.0
     DESCRIPTION "Schema driven configuaration parser/helper"
     LANGUAGES CXX)
 
+# Set the possible values of build type for cmake-gui
+set_property(CACHE CMAKE_BUILD_TYPE PROPERTY STRINGS
+    "DEBUG" "RELEASE" "CI")
 #
 # Set the default build type to Release (if the user doesn't specify)
 #
-set(default_build_type "Release")
+set(default_build_type "RELEASE")
 if(NOT CMAKE_BUILD_TYPE AND NOT CMAKE_CONFIGURATION_TYPES)
   message(STATUS "Setting build type to '${default_build_type}' as none was specified.")
   set(CMAKE_BUILD_TYPE "${default_build_type}" CACHE
       STRING "Choose the type of build." FORCE)
-  # Set the possible values of build type for cmake-gui
-  set_property(CACHE CMAKE_BUILD_TYPE PROPERTY STRINGS
-      "DEBUG" "RELEASE" "CI")
 endif()
 #
 # Some options

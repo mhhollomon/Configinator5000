@@ -217,3 +217,37 @@ TEST_CASE("Lists") {
     CHECK_FALSE(s.exists("foo"));
     CHECK_THROWS(s.at("bar"));
 }
+
+TEST_CASE("Arrays") {
+    // An Array can only have one type of child.
+    // First in wins.
+    // Also, children must be scalar
+    using ST = Configinator5000::Setting::setting_type;
+
+    Configinator5000::Setting s{ST::ARRAY};
+
+    CHECK(s.is_array());
+    CHECK(s.is_composite());
+    CHECK_FALSE(s.is_scalar());
+
+    CHECK_THROWS(s.at(0));
+
+    // reject composite, even if it is the first child
+    CHECK_THROWS(s.add_child(ST::LIST));
+    // Don't allow named children, even if first
+    CHECK_THROWS(s.add_child("Something", 3));
+
+    s.add_child(1);
+    // only one type
+    CHECK_THROWS(s.add_child(true));
+    CHECK_THROWS(s.add_child("hello"));
+    CHECK_THROWS(s.add_child(ST::GROUP));
+
+    CHECK(s.at(0).get<int>() == 1);
+
+    s.add_child(2);
+    CHECK(s.at(1).get<int>() == 2);
+    CHECK(s.at(-1).get<int>() == 2);
+
+    CHECK_FALSE(s.exists("happy times"));
+}
