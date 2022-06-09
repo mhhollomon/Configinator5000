@@ -65,7 +65,6 @@ TEST_CASE("string") {
 
 TEST_CASE("float") {
     Configinator5000::Config cfg;
-    CHECK(true);
 
     std::string input = R"DELIM( port = 42.0; )DELIM"s;
 
@@ -141,4 +140,66 @@ b = {
     
     CHECK(s.at("b").at("b1").at("bb1").get<std::string>() == "foo"s);
 
+}
+
+TEST_CASE("list") {
+    Configinator5000::Config cfg;
+
+    std::string input = R"DELIM(
+mylist = (
+    "A",
+    { a : 3 b: "long" " string" }
+    [ 1, 2 ]
+)
+)DELIM"s;
+
+    bool b = cfg.parse(input);
+
+    CHECK(b);
+
+    auto & s = cfg.get_settings();
+
+    CHECK(s.count() == 1);
+    CHECK(s.exists("mylist"));
+    auto & l = s.at("mylist");
+    CHECK(l.is_list());
+    CHECK(l.count() == 3);
+
+    CHECK(l.at(0).get<std::string>() == "A"s);
+
+    auto &g = l.at(1);
+    CHECK(g.at("a").get<int>() == 3);
+    CHECK(g.at("b").get<std::string>() == "long string");
+
+    auto &ary = l.at(2);
+    CHECK(ary.at(0).get<int>() == 1);
+    CHECK(ary.at(1).get<int> ()== 2);
+
+}
+
+TEST_CASE("array") {
+    Configinator5000::Config cfg;
+
+    std::string input = R"DELIM( good = [ 1, 2 ] )DELIM"s;
+
+    CHECK(cfg.parse(input));
+
+    auto & s = cfg.get_settings();
+
+    CHECK(s.count() == 1);
+    CHECK(s.exists("good"));
+
+    auto &good = s.at("good");
+    CHECK(good.count() == 2);
+    CHECK(good.at(0).get<int>() == 1);
+    CHECK(good.at(1).get<int>() == 2);
+
+    // mixed
+    CHECK_FALSE(cfg.parse("bad = [1, 43.0]"));
+
+    // group
+    CHECK_FALSE(cfg.parse("bad = [1, { a : 2 }]"));
+
+    // list
+    CHECK_FALSE(cfg.parse("bad : [ 42.0 ( 1, 2 ) ]"));
 }

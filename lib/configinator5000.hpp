@@ -399,6 +399,14 @@ namespace Configinator5000 {
             return int(children_.size());
         }
 
+        setting_type array_type() const {
+            if (is_array()) {
+                return array_type_;
+            }
+
+            throw std::runtime_error("Setting is not an array");
+        }
+
         Setting &at(int idx) {
             if (! is_composite()) {
                 throw std::runtime_error("at(int) called on a non-composite");

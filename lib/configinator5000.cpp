@@ -223,128 +223,132 @@ namespace Configinator5000 {
 
         //##############   match_bool_value  #################
 
-        bool match_bool_value(Setting *parent) {
+        std::optional<bool> match_bool_value() {
             // if there aren't enough chars then short circuit
             if (!valid_pos(4)) {
-                return false;
+                return std::nullopt;
             }
 
             int pos = 0;
             if (match_chars(pos, "Ff")) {
                 pos += 1;
-                if (! match_chars(pos, "Aa")) return false;
+                if (! match_chars(pos, "Aa")) return std::nullopt;
                 pos += 1;
-                if (! match_chars(pos, "Ll")) return false;
+                if (! match_chars(pos, "Ll")) return std::nullopt;
                 pos += 1;
-                if (! match_chars(pos, "Ss")) return false;
+                if (! match_chars(pos, "Ss")) return std::nullopt;
                 pos += 1;
-                if (! match_chars(pos, "Ee")) return false;
+                if (! match_chars(pos, "Ee")) return std::nullopt;
                 pos += 1;
                 // must be at end of word
-                if (valid_pos(pos) and std::isalnum(peek(pos))) return false;
+                if (valid_pos(pos) and std::isalnum(peek(pos))) return std::nullopt;
 
                 consume(pos);
-                parent->set_value(false);
-                return true;
+                return false;
 
             } else if (match_chars(pos, "Tt")) {
                 pos += 1;
-                if (! match_chars(pos, "Rr")) return false;
+                if (! match_chars(pos, "Rr")) return std::nullopt;
                 pos += 1;
-                if (! match_chars(pos, "Uu")) return false;
+                if (! match_chars(pos, "Uu")) return std::nullopt;
                 pos += 1;
-                if (! match_chars(pos, "Ee")) return false;
+                if (! match_chars(pos, "Ee")) return std::nullopt;
                 pos += 1;
                 // must be at end of word
-                if (valid_pos(pos) and std::isalnum(peek(pos))) return false;
+                if (valid_pos(pos) and std::isalnum(peek(pos))) return std::nullopt;
 
                 consume(pos);
-                parent->set_value(true);
                 return true;
             }
 
-            return false;
+            return std::nullopt;
 
         }
 
-        //##############   match_numeric_value  #################
-        //
-        bool match_numeric_value(Setting *parent) {
+        //##############   match_integer_value  #################
+        // handles both base 10 and hex
+        std::optional<long> match_integer_value() {
             if (match_string("0x") or match_string("0X")) {
                 // integer in hex format - from_chars doesn't like the 0x prefix
                 // can't be anything else so commit.
-                int seen_num;
+                long seen_num;
                 auto [ ptr, ec] = std::from_chars(current_loc.sv.data()+2,
                         current_loc.sv.data()+current_loc.sv.size(), seen_num, 16);
                 if (ec == std::errc()) {
-                    parent->set_value(seen_num);
                     int pos = ptr-current_loc.sv.data();
                     if (valid_pos(pos) and std::isalnum(*ptr)) {
                         // End of the number wasn't at a word boundary.
                         record_error("Hex prefix, but invalid hex number followed");
-                        return false;
+                        return std::nullopt;
                     }
                     consume(pos);
-                    return true;
+                    return seen_num;
                 } else {
                     record_error("Hex prefix, but invalid hex number followed");
-                    return false;
+                    return std::nullopt;
                 }
 
-            }
-
-            if (match_chars(0, "+-0123456789")) {
+            } else if (match_chars(0, "+-0123456789")) {
                 // either a base-10 integer or float.
-                // This mess is because from_chars in g++ v10 doesn't work
-                // for floats.
 
                 int copy_size = std::min(current_loc.sv.size(), size_t(100));
                 std::string subject(std::string(current_loc.sv.substr(0, copy_size)));
 
-                bool worked = true;
                 try {
                     size_t pos = 0;
-                    int seen_num = std::stol(subject, &pos);
+                    long seen_num = std::stol(subject, &pos);
 
                     if (valid_pos(pos) and (std::isalnum(peek(pos)) or match_char(pos, '.'))) {
-                        worked = false;
+                        // must be at a word boundary.
+                        return std::nullopt;
                     } else {
                         consume(pos);
-                        parent->set_value(seen_num);
-                        worked = true;
+                        return seen_num;
                     }
                 } catch(std::exception &e) {
-                    worked = false;
+                    return std::nullopt;
                 }
 
-                if (worked) return true;
+                return std::nullopt;
 
-                // try float
-                worked = true;
+            }
+
+            return std::nullopt;
+        }
+
+        //##############   match_double_value  #################
+        
+        std::optional<double>  match_double_value() {
+
+            if (match_chars(0, "+-0123456789")) {
+                // either a base-10 integer or float.
+
+                int copy_size = std::min(current_loc.sv.size(), size_t(100));
+                std::string subject(std::string(current_loc.sv.substr(0, copy_size)));
+
                 try {
                     size_t pos = 0;
                     double seen_num = std::stod(subject, &pos);
                     if (valid_pos(pos) and std::isalnum(peek(pos))) {
-                        worked = false;
+                        return std::nullopt;
                     } else {
                         consume(pos);
-                        parent->set_value(seen_num);
-                        worked = true;
+                        return seen_num;
                     }
                 } catch(std::exception &e) {
-                    worked = false;
+                    return std::nullopt;
                 }
 
-                if (worked) return true;
+                return std::nullopt;
             }
 
-
-            return false;
+            return std::nullopt;
         }
+        
         //##############   match_string_value  ###############
 
-        bool match_string_value(Setting *parent) {
-            if (!match_char('"')) return false;
+        std::optional<std::string> match_string_value() {
+            if (!match_char('"')) return std::nullopt;
 
             // consume the opening quotes
             consume(1);
@@ -403,7 +407,7 @@ namespace Configinator5000 {
                         }
                     case '\n' :
                         record_error("Unterminated string");
-                        return false;
+                        return std::nullopt;
                         break;
                     case '"' :
                         stop = true;
@@ -424,18 +428,36 @@ namespace Configinator5000 {
                 }
             }
 
-            parent->set_value(buf.str());
-
-            return true;
+            return buf.str();
 
         }
         //##############   match_scalar_value  ###############
 
         bool match_scalar_value(Setting *parent) {
 
-            if (match_bool_value(parent)) return true;
-            if (match_numeric_value(parent)) return true;
-            if (match_string_value(parent)) return true;
+            auto bv = match_bool_value();
+            if (bv) {
+                parent->set_value(*bv);
+                return true;
+            }
+            
+            auto lv = match_integer_value();
+            if (lv) {
+                parent->set_value(*lv);
+                return true;
+            }
+
+            auto dv = match_double_value();
+            if (dv) {
+                parent->set_value(*dv);
+                return true;
+            }
+
+            auto sv = match_string_value();
+            if (sv) {
+                parent->set_value(*sv);
+                return true;
+            }
 
 
             return false;
@@ -466,19 +488,121 @@ namespace Configinator5000 {
             return std::string(retval);
         }
 
-        //##############   parse_value_list    ##############
-        bool parse_value_list(Setting * setting) {
+        //##############   parse_list     ##############
+        bool parse_list(Setting* setting) {
+            skip();
+            while(1) {
+                if (peek() == ')') {
+                    return true;
+                }
+                Setting *child = setting->create_child();
+                if (!parse_setting_value(child)) {
+                    return false;
+                }
+                skip();
+                if (match_chars(0, ";,")) {
+                    consume(1);
+                    skip();
+                }
+            }
+
+            // Never should get here. At some point parse_setting_value()
+            // will fail and we'll exit inside the loop
+            return false;
+        }
+
+        //##############   parse_array    ##############
+        bool parse_array(Setting * setting) {
+
+            // For the first one, it can be anything
+            do {
+                auto bv = match_bool_value();
+                if (bv) {
+                    setting->add_child(*bv);
+                    break;
+                }
+                
+                auto lv = match_integer_value();
+                if (lv) {
+                    setting->add_child(*lv);
+                    break;
+                }
+
+                auto dv = match_double_value();
+                if (dv) {
+                    setting->add_child(*dv);
+                    break;
+                }
+
+                auto sv = match_string_value();
+                if (sv) {
+                    setting->add_child(*sv);
+                    break;
+                }
+            } while(false);
+
+
+            while (1) {
+                skip();
+                if (match_chars(0, ";,")) {
+                    consume(1);
+                    skip();
+                }
+                if (setting->array_type() == ST::BOOL) {
+                    auto bv = match_bool_value();
+                    if (bv) {
+                        setting->add_child(*bv);
+                    } else {
+                        break;
+                    }
+
+                } else if (setting->array_type() == ST::INTEGER) {
+                    auto lv = match_integer_value();
+                    if (lv) {
+                        setting->add_child(*lv);
+                    } else {
+                        break;
+                    }
+
+                } else if (setting->array_type() == ST::FLOAT) {
+                    auto dv = match_double_value();
+                    if (dv) {
+                        setting->add_child(*dv);
+                    } else {
+                        break;
+                    }
+                } else if (setting->array_type() == ST::STRING) {
+
+                    auto sv = match_string_value();
+                    if (sv) {
+                        setting->add_child(*sv);
+                    } else {
+                        break;
+                    }
+                } else {
+                    throw std::runtime_error("Unexpected array_type");
+                }
+            }
+
+            Setting tester{};
+
+            if (match_scalar_value(&tester)) {
+                record_error("All values in an array must be the same scalar type");
+                return false;
+            }
+
             return true;
+
         }
 
         //##############   parse_setting_value ##############
 
-        bool parse_setting_value(Setting * setting) {
+        bool parse_setting_value(Setting * setting, bool record_failure=true) {
             if (peek() == '{') {
                 consume(1);
                 skip();
                 setting->make_group();
-                parse_setting_list(setting);
+                parse_group(setting);
                 skip();
                 if (peek(0) != '}') {
                     record_error("Didn't find close of setting group");
@@ -489,7 +613,7 @@ namespace Configinator5000 {
                 consume(1);
                 skip();
                 setting->make_list();
-                parse_value_list(setting);
+                parse_list(setting);
                 skip();
                 if (peek() != ')') {
                     record_error("Didn't find close of setting list");
@@ -500,18 +624,16 @@ namespace Configinator5000 {
                 consume(1);
                 skip();
                 setting->make_array();
-                //parse_scalar_value_list(&new_setting);
+                parse_array(setting);
                 skip();
                 if (peek() != ']') {
                     record_error("Didn't find close of value array");
                     return false;
                 }
                 consume(1);
-            } else {
-                if (! match_scalar_value(setting)) {
-                    record_error("Expecting a value");
-                    return false;
-                }
+            } else if (! match_scalar_value(setting)) {
+                if (record_failure) record_error("Expecting a value");
+                return false;
             }
 
             return true;
@@ -546,9 +668,9 @@ namespace Configinator5000 {
             
         }
 
-        //##############   setting_list #####################
+        //##############   parse_group #####################
 
-        bool parse_setting_list(Setting * parent) {
+        bool parse_group(Setting * parent) {
             bool at_least_one = false;
             while (1) {
                 if (!parse_setting(parent)) break;
@@ -569,7 +691,7 @@ namespace Configinator5000 {
 
             skip();
 
-            parse_setting_list(setting);
+            parse_group(setting);
 
             if (! eoi()) {
                 record_error("Not at end of input!");
