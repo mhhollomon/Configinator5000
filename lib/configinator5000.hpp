@@ -8,6 +8,7 @@
 #include <exception>
 #include <sstream>
 #include <fstream>
+#include <functional>
 
 #include <type_traits>
 
@@ -87,6 +88,84 @@ namespace Configinator5000 {
         Setting(double f) :  type_(setting_type::FLOAT), float_(f) {}
         Setting(std::string s) : type_(setting_type::STRING), string_(s) {}
         Setting(const char * c) : type_(setting_type::STRING), string_(c) {}
+
+        class group_iterator;
+        class group_enumerator {
+            friend class Setting;
+            friend class group_iterator;
+            Setting &parent_;
+
+            group_enumerator(Setting &p) : parent_{p} {}
+
+            public:
+
+            group_iterator& begin() {
+                return *(new group_iterator{parent_, parent_.group_.begin()});
+            }
+
+            group_iterator& end() {
+                return *(new group_iterator(parent_, parent_.group_.end()));
+            }
+        };
+
+        class group_iterator {
+            friend class group_enumerator;
+            Setting& parent_;
+            std::map<std::string, int>::iterator it_;
+            std::pair<std::string, Setting &> *output_ = nullptr;
+
+            group_iterator(Setting &p, std::map<std::string, int>::iterator i) :
+                parent_(p), it_(i) {
+
+                    if (it_ != parent_.group_.end()) {
+                        output_ = new std::pair<std::string, Setting &>(it_->first, 
+                                std::ref(parent_.children_.at(it_->second)));
+                    }
+                }
+
+
+            public:
+                ~group_iterator() {
+                    if (output_) delete output_;
+                }
+                std::pair<std::string, Setting &> operator*() {
+                    if (not output_) throw std::runtime_error("invalid iterator");
+                    return *output_;
+                }
+                std::pair<std::string, Setting &>* operator->() {
+                    if (not output_) throw std::runtime_error("invalid iterator");
+                    return output_;
+                }
+
+                group_iterator& operator++() {
+                    ++it_;
+                    if (output_) {
+                        delete output_;
+                        output_ = nullptr;
+                    }
+
+                    if (it_ != parent_.group_.end()) {
+                        output_ = new std::pair<std::string, Setting &>(it_->first, 
+                                std::ref(parent_.children_.at(it_->second)));
+                    }
+                    return *this;
+                }
+
+                bool operator==(const group_iterator *o) const {
+                    return (it_ == o->it_);
+                }
+                bool operator==(const group_iterator &o) const {
+                    return (it_ == o.it_);
+                }
+        };
+
+        group_enumerator& enumerate() {
+            if (!is_group()) {
+                throw std::runtime_error("Can only enumerate groups");
+            }
+
+            return *(new group_enumerator(*this));
+        }
 
         Setting & set_value(bool b) {
             if (!is_boolean()) {
@@ -441,6 +520,15 @@ namespace Configinator5000 {
             return children_.at(iter->second);
         }
 
+
+        auto begin() {
+            return children_.begin();
+        }
+
+        auto end() {
+            return children_.end();
+        }
+
         //used by the parser. Probably will go away
         Setting * create_child(const std::string &name) {
             return try_add_child(name, setting_type::BOOL);
@@ -454,9 +542,14 @@ namespace Configinator5000 {
 
     };
 
+    class Parser;
+
     class Config {
         std::unique_ptr<SchemaNode>schema_tree_;
         std::unique_ptr<Setting>cfg_;
+
+        // can't use unique_ptr with incomplete types.
+        Parser* parser_ = nullptr;
     public :
         bool parse_file(std::string file_name) {
             std::ifstream strm{file_name};
@@ -476,6 +569,10 @@ namespace Configinator5000 {
         Setting& get_settings() const {
             return *cfg_;
         }
+
+        std::ostream &stream_errors(std::ostream& strm);
+
+        ~Config();
 
     private:
         bool parse_with_schema(const std::string &input, const SchemaNode *schema);

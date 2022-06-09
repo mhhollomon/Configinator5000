@@ -194,6 +194,11 @@ TEST_CASE("array") {
     CHECK(good.at(0).get<int>() == 1);
     CHECK(good.at(1).get<int>() == 2);
 
+    int i = 1;
+    for (auto &x : good) {
+        CHECK(x.get<int>() == i++);
+    }
+
     // mixed
     CHECK_FALSE(cfg.parse("bad = [1, 43.0]"));
 
@@ -202,4 +207,18 @@ TEST_CASE("array") {
 
     // list
     CHECK_FALSE(cfg.parse("bad : [ 42.0 ( 1, 2 ) ]"));
+}
+
+TEST_CASE("errors") {
+    Configinator5000::Config cfg;
+
+    std::string input = R"DELIM( bad = $%^ )DELIM"s;
+
+    CHECK_FALSE(cfg.parse(input));
+
+    std::stringstream buf{};
+
+    cfg.stream_errors(buf);
+
+    CHECK(buf.str() == "line 0 : Expecting a value\nline 0 : Not at end of input!\n"s);
 }

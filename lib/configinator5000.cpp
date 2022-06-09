@@ -5,7 +5,7 @@
 #include <charconv>
 #include <sstream>
 
-#include <iostream>
+#include <ostream>
 
 
 namespace Configinator5000 {
@@ -707,16 +707,20 @@ namespace Configinator5000 {
 
         cfg_.reset(new Setting(ST::GROUP));
 
-        Parser p{input, cfg_.get()};
+        if (parser_) delete parser_;
+        parser_ = new Parser(input, cfg_.get());
 
-        bool retval = p.do_parse();
+        return parser_->do_parse();
+    }
 
-        if (!retval) {
-            std::cerr << "FAILED!\n";
-            std::cerr << p.errors;
-        }
+    std::ostream &Config::stream_errors(std::ostream &strm) {
+        strm << parser_->errors;
 
-        return retval;
+        return strm;
+    }
+
+    Config::~Config() {
+        if (parser_) delete parser_;
     }
 
 } // end namespace Configinator5000

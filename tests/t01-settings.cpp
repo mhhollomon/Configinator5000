@@ -190,6 +190,34 @@ TEST_CASE("Groups") {
     CHECK_THROWS(s.at("fargate"));
 
 }
+TEST_CASE("Groups Enum") {
+    using ST = Configinator5000::Setting::setting_type;
+
+    Configinator5000::Setting s{ST::GROUP};
+
+    s.add_child("a", 1);
+    s.add_child("b", 2);
+    s.add_child("c", 3);
+
+    auto &enumer = s.enumerate();
+    auto &iter = enumer.begin();
+
+    CHECK(iter->first == "a");
+    CHECK(iter->second.get<int>() == 1);
+
+    ++iter;
+    CHECK(iter->first == "b");
+    CHECK(iter->second.get<int>() == 2);
+
+    ++iter;
+    CHECK(iter->first == "c");
+    CHECK(iter->second.get<int>() == 3);
+
+    ++iter;
+    CHECK(iter == enumer.end());
+    CHECK_THROWS(*iter);
+
+}
 
 TEST_CASE("Lists") {
     using ST = Configinator5000::Setting::setting_type;
