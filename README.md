@@ -73,42 +73,42 @@ array).
 
 
 ### Constructors
-####  `Setting(setting_type t = setting_type::BOOL)`
+-  `Setting(setting_type t = setting_type::BOOL)`
 Create a Setting of the desired type of value. The actual
 value is the default initialized value for the type.
 
-#### `Setting(bool b)`
-#### `Setting(int i)`
-#### `Setting(long i)`
-#### `Setting(double f)`
-#### `Setting(std::string s)`
-#### `Setting(const char * c)`
+- `Setting(bool b)`
+- `Setting(int i)`
+- `Setting(long i)`
+- `Setting(double f)`
+- `Setting(std::string s)`
+- `Setting(const char * c)`
 Create a Setting with the desired value and type. Some apparent duplicates are
 there to help disabiguate the overloads.
 
 ### Type probes
 
-#### bool is_composite()
-#### bool is_scalar()
+- `bool is_composite()`
+- `bool is_scalar()`
 
-#### bool is_boolean()
-#### bool is_integer()
-#### bool is_float()
-#### bool is_string()
-#### bool is_group()
-#### bool is_list()
-#### bool is_array()
+- `bool is_boolean()`
+- `bool is_integer()`
+- `bool is_float()`
+- `bool is_string()`
+- `bool is_group()`
+- `bool is_list()`
+- `bool is_array()`
 
-#### bool is_numeric()
+- `bool is_numeric()`
 
 ### Setting/Updating the Scalar Value
 
-#### `Setting & set_value(bool v)`
-#### `Setting & set_value(int v)`
-#### `Setting & set_value(long v)`
-#### `Setting & set_value(double v)`
-#### `Setting & set_value(const std::string v)`
-#### `Setting & set_value(const char * v)`
+- `Setting & set_value(bool v)`
+- `Setting & set_value(int v)`
+- `Setting & set_value(long v)`
+- `Setting & set_value(double v)`
+- `Setting & set_value(const std::string v)`
+- `Setting & set_value(const char * v)`
 Update the Setting to have the value and type specified. These are mutators.
 The reference to the object is returned to facilitate chaining.
 
@@ -121,18 +121,18 @@ composite. Don't hold on to it for long.
 
 ### Working with composites
 
-#### Setting& make_list()
-#### Setting& make_group()
-#### Setting& make_array()
-Switches the Setting to be the correct type of composite. If it already is
+- `Setting& make_list()`
+- `Setting& make_group()`
+- `Setting& make_array()`
+Switches the Setting to be the requested type of composite. If it already is
 correct, this is a no-op. If the type actually changes, any existing children
 will be discarded.
 
-#### int count()
+- `int count()`
 Return how many children the composite has. Actually also works with scalars
 where it always returns 0.
 
-#### Setting& add_child(setting_type t)
+- `Setting& add_child(setting_type t)`
 Add a child of type `t`. The value for scalars will be the default initialized
 value. The throws an exception for groups since children for groups must have
 names. Also throws for scalars.
@@ -140,7 +140,7 @@ names. Also throws for scalars.
 **NOTE** The reference may become invalid if more children are added to the
 composite. Don't hold on to it for long.
 
-#### template<typename T> Setting& add_child(T value)
+- `template\<typename T\> Setting& add_child(T value)`
 Attempts to deduce the correct scalar type for T and create a child of that
 type initialized to the value. This throws an exception for groups since
 children for groups must have names. Also throws for scalars.
